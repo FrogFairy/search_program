@@ -65,9 +65,9 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_PAGEUP:
+                if event.key == pygame.K_UP:
                     mp.update('up')
-                elif event.key == pygame.K_PAGEDOWN:
+                elif event.key == pygame.K_DOWN:
                     mp.update('down')
         screen.blit(load_image(load_map(mp)), (0, 0))
         pygame.display.flip()
