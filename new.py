@@ -2,15 +2,17 @@ import os
 import sys
 import pygame
 import requests
+from scale import get_coord, geocode
 
 
 LAT_STEP = 0.003
 LON_STEP = 0.008
 pygame.init()
-size = width, height = 700, 450
+size = width, height = 700, 560
 screen = pygame.display.set_mode(size)
 background = pygame.Color("white")
 color = pygame.Color('#abcdef')
+status = ''
 
 
 class Map:
@@ -19,6 +21,7 @@ class Map:
         self.lon = 37.664777
         self.zoom = 15
         self.type = "map"
+        self.pt = None
 
     def ll(self):
         return f'{self.lon},{self.lat}'
@@ -48,12 +51,25 @@ class Map:
                 self.lon += LON_STEP * 2 ** (15 - self.zoom)
             else:
                 self.lon = 180
-        else:
+        elif event in ['map', "sat,skl", 'sat']:
             self.type = event
+
+    def search(self, req):
+        global status
+        res = get_coord(req)
+        if res[0]:
+            self.lon, self.lat = list(map(float, res[0].split(',')))
+            self.zoom = 15
+            self.pt = self.ll() + ',pm2orl'
+            status = ''
+        else:
+            status = "Адрес не найден"
 
 
 def load_map(mp):
     url = f"http://static-maps.yandex.ru/1.x/?ll={mp.ll()}&z={mp.zoom}&l={mp.type}"
+    if mp.pt:
+        url += f"&pt={mp.pt}"
     response = requests.get(url)
     if not response:
         print("Ошибка выполнения запроса:")
@@ -115,6 +131,13 @@ def draw_buttons():
 def main():
     running = True
     mp = Map()
+    input_box = pygame.Rect(5, 460, 690, 40)
+    color_inactive = pygame.Color('lightskyblue3')
+    color_active = pygame.Color('dodgerblue2')
+    input_color = color_inactive
+    active = False
+    text = ''
+    font = pygame.font.Font(None, 30)
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -132,6 +155,14 @@ def main():
                     mp.update('right')
                 elif event.key == pygame.K_LEFT:
                     mp.update('left')
+                if active:
+                    if event.key == pygame.K_RETURN:
+                        mp.search(text)
+                        text = ''
+                    elif event.key == pygame.K_BACKSPACE:
+                        text = text[:-1]
+                    else:
+                        text += event.unicode
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if 605 <= event.pos[0] <= 695 and 20 <= event.pos[1] <= 60:
                     mp.update("map")
@@ -139,8 +170,18 @@ def main():
                     mp.update("sat")
                 elif 605 <= event.pos[0] <= 695 and 120 <= event.pos[1] <= 160:
                     mp.update("sat,skl")
+                if input_box.collidepoint(event.pos):
+                    active = not active
+                else:
+                    active = False
+                input_color = color_active if active else color_inactive
         screen.fill(background)
         draw_buttons()
+        txt_surface = font.render(text, True, input_color)
+        screen.blit(txt_surface, (input_box.x + 5, input_box.y + 5))
+        pygame.draw.rect(screen, input_color, input_box, 2)
+        txt = font.render(status, True, color)
+        screen.blit(txt, ((width - txt.get_width()) / 2, 510 + (40 - txt.get_height()) / 2))
         screen.blit(load_image(load_map(mp)), (0, 0))
         pygame.display.flip()
     os.remove(load_map(mp))
