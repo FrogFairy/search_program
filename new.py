@@ -31,6 +31,7 @@ class Map:
         self.lat = 55.729738
         self.lon = 37.664777
         self.zoom = 15
+        self.spn = '0.005,0.005'
         self.type = "map"
         self.pt = None
 
@@ -65,7 +66,9 @@ class Map:
         elif event in ['map', "sat,skl", 'sat']:
             self.type = event
         elif event == 'reset':
+            global status
             self.pt = None
+            status = ''
             # self.lat = 55.729738
             # self.lon = 37.664777
 
@@ -75,14 +78,15 @@ class Map:
         if res[0]:
             self.lon, self.lat = list(map(float, res[0].split(',')))
             self.zoom = 15
+            self.spn = res[1]
             self.pt = self.ll() + ',pm2orl'
-            status = ''
+            status = res[2]
         else:
             status = "Адрес не найден"
 
 
 def load_map(mp):
-    url = f"http://static-maps.yandex.ru/1.x/?ll={mp.ll()}&z={mp.zoom}&l={mp.type}"
+    url = f"http://static-maps.yandex.ru/1.x/?ll={mp.ll()}&z={mp.zoom}&l={mp.type}&spn={mp.spn}"
     if mp.pt:
         url += f"&pt={mp.pt}"
     response = requests.get(url)
@@ -151,10 +155,12 @@ def draw_buttons(txt):
     text_y = rect_reset.y + (rect_reset.h - text_h) / 2
     screen.blit(text, (text_x, text_y))
 
+    font = pygame.font.Font(None, 30)
     txt_surface = font.render(txt, True, input_color)
     screen.blit(txt_surface, (input_box.x + 5, input_box.y + 5))
     pygame.draw.rect(screen, input_color, input_box, 2)
-    txt = font.render(status, True, color)
+    font = pygame.font.Font(None, 24)
+    txt = font.render(status, True, color_active)
     screen.blit(txt, ((width - txt.get_width()) / 2, 510 + (40 - txt.get_height()) / 2))
 
 

@@ -13,7 +13,8 @@ def get_coord(address):
     dx = abs(float(left) - float(right)) / 2.0
     dy = abs(float(top) - float(bottom)) / 2.0
     spn = f"{dx},{dy}"
-    return ll, spn
+    full_address = toponym["metaDataProperty"]["GeocoderMetaData"]["text"]
+    return ll, spn, full_address
 
 
 def geocode(address):
