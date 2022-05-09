@@ -85,7 +85,6 @@ class Map:
         if req:
             res = get_coord(req)
             if res[0]:
-                print(1, self.lon, self.lat)
                 self.lon, self.lat = list(map(float, res[0].split(',')))
                 self.zoom = 15
                 self.spn = res[1]
@@ -162,6 +161,25 @@ def get_ll(mp, pos):
                        f"geocode={ll}&format=json").json()["response"][
         "GeoObjectCollection"]["featureMember"][0]["GeoObject"]["metaDataProperty"]["GeocoderMetaData"]["Address"]
     return ','.join([str(lx), str(ly)]), mp.spn, res
+
+
+def find_biz(mp, pos):
+    ll = get_ll(mp, pos)[0]
+    search_api_server = "https://search-maps.yandex.ru/v1/"
+    apikey = "dda3ddba-c9ea-4ead-9010-f43fbc15c6e3"
+    search_params = {
+        "apikey": apikey,
+        "text": "организация",
+        "ll": ll,
+        "spn": "0.05,0.05",
+        "type": "biz",
+        "lang": "ru_RU"
+    }
+    response = requests.get(search_api_server, params=search_params)
+    json_response = response.json()
+    res = json_response["features"]
+    if res:
+        print(res[0])
 
 
 def draw_buttons(txt):
@@ -269,6 +287,9 @@ def main():
                 elif event.button == 1:
                     if 0 <= event.pos[0] <= 600 and 0 <= event.pos[1] <= 450:
                         mp.search(coord=get_ll(mp, event.pos))
+                elif event.button == 3:
+                    if 0 <= event.pos[0] <= 600 and 0 <= event.pos[1] <= 450:
+                        find_biz(mp, event.pos)
                 if input_box.collidepoint(event.pos):
                     active = not active
                 else:
