@@ -3,6 +3,7 @@ import sys
 import pygame
 import requests
 from scale import get_coord, geocode
+import math
 
 
 LAT_STEP = 0.003
@@ -34,6 +35,9 @@ class Map:
         self.lon = 37.664777
         self.zoom = 15
         self.spn = '0.005,0.005'
+        spn = list(map(float, self.spn.split(',')))
+        start = [self.lon, self.lat]
+        self.start = [start[0] - spn[0] / 2, start[1] - spn[1] / 2]
         self.type = "map"
         self.pt = None
         self.postal_code = None
@@ -76,20 +80,32 @@ class Map:
             # self.lat = 55.729738
             # self.lon = 37.664777
 
-    def search(self, req):
+    def search(self, req=None, coord=None):
         global status
-        res = get_coord(req)
-        if res[0]:
-            self.lon, self.lat = list(map(float, res[0].split(',')))
-            self.zoom = 15
-            self.spn = res[1]
-            self.pt = self.ll() + ',pm2orl'
-            status = res[2]["formatted"]
-            if "postal_code" in res[2]:
-                self.postal_code = res[2]["postal_code"]
-            self.change_postal()
+        if req:
+            res = get_coord(req)
+            if res[0]:
+                print(1, self.lon, self.lat)
+                self.lon, self.lat = list(map(float, res[0].split(',')))
+                self.zoom = 15
+                self.spn = res[1]
+                self.pt = self.ll() + ',pm2orl'
+                spn = list(map(float, self.spn.split(',')))
+                start = [self.lon, self.lat]
+                self.start = [start[0] - spn[0] / 2, start[1] - spn[1] / 2]
+                status = res[2]["formatted"]
+                if "postal_code" in res[2]:
+                    self.postal_code = res[2]["postal_code"]
+                self.change_postal()
+            else:
+                status = "Адрес не найден"
         else:
-            status = "Адрес не найден"
+            self.lon, self.lat = list(map(float, coord[0].split(',')))
+            self.pt = self.ll() + ',pm2orl'
+            status = coord[2]["formatted"]
+            if "postal_code" in coord[2]:
+                self.postal_code = coord[2]["postal_code"]
+            self.change_postal()
 
     def change_postal(self):
         global status
@@ -100,7 +116,7 @@ class Map:
 
 
 def load_map(mp):
-    url = f"http://static-maps.yandex.ru/1.x/?ll={mp.ll()}&z={mp.zoom}&l={mp.type}&spn={mp.spn}"
+    url = f"http://static-maps.yandex.ru/1.x/?ll={mp.ll()}&z={mp.zoom}&l={mp.type}&size=600,450"
     if mp.pt:
         url += f"&pt={mp.pt}"
     response = requests.get(url)
@@ -131,6 +147,21 @@ def load_image(name, colorkey=None):
     else:
         image = image.convert_alpha()
     return image
+
+
+def get_ll(mp, pos):
+    x, y = pos
+    spn = list(map(float, mp.spn.split(',')))
+    ll = ','.join([str(mp.start[0] + (spn[0] * x) / 600),
+                   str(mp.start[1] + (spn[1] * y) / 450)])
+    dy = 225 - pos[1]
+    dx = pos[0] - 300
+    lx = mp.lon + dx * 0.0000428 * math.pow(2, 15 - mp.zoom)
+    ly = mp.lat + dy * 0.0000428 * math.cos(math.radians(mp.lat)) * math.pow(2, 15 - mp.zoom)
+    res = requests.get(f"http://geocode-maps.yandex.ru/1.x/?apikey=40d1649f-0493-4b70-98ba-98533de7710b&"
+                       f"geocode={ll}&format=json").json()["response"][
+        "GeoObjectCollection"]["featureMember"][0]["GeoObject"]["metaDataProperty"]["GeocoderMetaData"]["Address"]
+    return ','.join([str(lx), str(ly)]), mp.spn, res
 
 
 def draw_buttons(txt):
@@ -215,7 +246,7 @@ def main():
                     mp.update('left')
                 if active:
                     if event.key == pygame.K_RETURN:
-                        mp.search(text)
+                        mp.search(req=text)
                         text = ''
                     elif event.key == pygame.K_BACKSPACE:
                         text = text[:-1]
@@ -235,6 +266,9 @@ def main():
                 elif rect_postal.collidepoint(event.pos):
                     postal = not postal
                     mp.change_postal()
+                elif event.button == 1:
+                    if 0 <= event.pos[0] <= 600 and 0 <= event.pos[1] <= 450:
+                        mp.search(coord=get_ll(mp, event.pos))
                 if input_box.collidepoint(event.pos):
                     active = not active
                 else:
@@ -245,6 +279,7 @@ def main():
         screen.blit(load_image(load_map(mp)), (0, 0))
         pygame.display.flip()
     os.remove(load_map(mp))
+
 
 if __name__ == '__main__':
     main()
